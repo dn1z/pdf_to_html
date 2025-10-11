@@ -9,14 +9,13 @@ from pathlib import Path
 import pymupdf
 from fontTools.ttLib import TTFont
 
+CWD = Path.cwd()
 BASE = Path(__file__).parent
 TEMPDIR = None
 
 # You need fontforge installed and accessible in your PATH
 # On Windows, it checks from WSL
 class FontOps:
-    FF = """import fontforge, sys; pdf_file, tmp_dir = sys.argv[1], sys.argv[2]; data = set(fontforge.fontsInFile(pdf_file)); [print(f"Processing font {i+1}/{len(data)}: {f}") or fontforge.open(f"{pdf_file}({f})").generate(f"{tmp_dir}/{f}.woff") for i, f in enumerate(data)]"""
-
     @staticmethod
     def generate_fonts(pdf_path):
         for font in TEMPDIR.glob('*'):
@@ -25,10 +24,10 @@ class FontOps:
         command = [
             'wsl',
             'fontforge',
-            '-c',
-            FontOps.FF,
-            Path(os.path.relpath(pdf_path, BASE)).as_posix(),
-            Path(os.path.relpath(TEMPDIR, BASE)).as_posix()
+            '-script',
+            Path(os.path.relpath(BASE/'fontforge.py', CWD)).as_posix(),
+            Path(os.path.relpath(pdf_path, CWD)).as_posix(),
+            Path(os.path.relpath(TEMPDIR, CWD)).as_posix()
         ]
 
         if os.name != 'nt':
