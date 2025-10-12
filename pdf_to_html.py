@@ -13,46 +13,20 @@ CWD = Path.cwd()
 BASE = Path(__file__).parent
 TEMPDIR = None
 
-# You need fontforge installed and accessible in your PATH
-# On Windows, it checks from WSL
+
 class FontOps:
+    BUFFERS = {}
+
     @staticmethod
     def generate_fonts(pdf_path):
-        for font in TEMPDIR.glob('*'):
-            font.unlink()
-        
         command = [
-            'wsl',
-            'fontforge',
-            '-script',
-            Path(os.path.relpath(BASE/'fontforge.py', CWD)).as_posix(),
+            'pdftohtml.exe',
+            '-overwrite',
             Path(os.path.relpath(pdf_path, CWD)).as_posix(),
             Path(os.path.relpath(TEMPDIR, CWD)).as_posix()
         ]
 
-        if os.name != 'nt':
-            command.pop(0)
-
         subprocess.run(command, check=True)
-    
-    @staticmethod
-    def woff_to_mupdf():
-        """ Convert WOFF font file to pymupdf.Font object """
-        fonts = {}
-
-        for woff_file in TEMPDIR.glob('*.woff'):
-
-            ttf_buffer = BytesIO()
-            font = TTFont(woff_file)
-            font.flavor = None  # Remove WOFF flavor to convert to TTF
-            font.save(ttf_buffer)
-            ttf_buffer.seek(0)
-            try:
-                fonts[woff_file.stem] = pymupdf.Font(fontbuffer=ttf_buffer.read())
-            except Exception as e:
-                print(f"Error processing {woff_file}: {e}")
-
-        return fonts
 
     @staticmethod
     def extract_fonts_from_pdf(pdf_path):
@@ -60,16 +34,21 @@ class FontOps:
         fonts = {}
         FontOps.generate_fonts(pdf_path)
 
-        woff_files = list(TEMPDIR.glob('*.woff'))
-        for woff_file in woff_files:
-            with open(woff_file, 'rb') as f:
-                font_data = f.read()
-            font_base64 = base64.b64encode(font_data).decode('utf-8')
-            clean_name = woff_file.stem
+        for ttf_file in TEMPDIR.glob('*.ttf'):
+            font = TTFont(ttf_file)
 
-            fonts[clean_name] = {
-                "name": clean_name,
-                "data": font_base64,
+            font_family = font["name"].names[1].toStr()
+            FontOps.BUFFERS[font_family] = pymupdf.Font(fontbuffer=ttf_file.read_bytes())
+
+            font.flavor = "woff"
+            woff_buffer = BytesIO()
+            font.save(woff_buffer)
+
+            woff_b64 = base64.b64encode(woff_buffer.getvalue()).decode('utf-8')
+
+            fonts[font_family] = {
+                "name": font_family,
+                "data": woff_b64,
                 "format": "woff"
             }
 
@@ -282,7 +261,7 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
     
     print("Extracting fonts...")
     fonts = FontOps.extract_fonts_from_pdf(pdf_path)
-    font_buffers = FontOps.woff_to_mupdf()
+    font_buffers = FontOps.BUFFERS
     print(f"Extracted {len(fonts)} fonts")
 
     if output_path is None:
