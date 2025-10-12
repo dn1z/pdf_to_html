@@ -71,7 +71,34 @@ class FontOps:
                 "format": "woff"
             }
 
-        print(f"Not extracted {len(data)} fonts are: {list(data.values())}")
+        for otf_file in natsorted(TEMPDIR.glob('*.otf')):
+            font = TTFont(otf_file)
+
+            # OTF fonts do not seem to have a name entry
+            # TODO make sure otf matches correct extracted font
+            font_family = None
+            for xref, name in data.items():
+                if '+' in name:
+                    font_xref = xref
+                    font_family = data.pop(xref)
+                    break
+                    
+            FontOps.BUFFERS[font_family] = pymupdf.Font(fontbuffer=otf_file.read_bytes())
+            
+            font.flavor = "woff"
+            woff_buffer = BytesIO()
+            font.save(woff_buffer)
+
+            woff_b64 = base64.b64encode(woff_buffer.getvalue()).decode('utf-8')
+
+            fonts[font_xref] = {
+                "name": font_family,
+                "data": woff_b64,
+                "xref": font_xref,
+                "format": "woff",
+            }
+
+        print(f"Non-extracted {len(data)} fonts are: {list(data.values())}")
         return fonts
 
 
