@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pymupdf
 from fontTools.ttLib import TTFont
+from natsort import natsorted
 
 CWD = Path.cwd()
 BASE = Path(__file__).parent
@@ -34,11 +35,28 @@ class FontOps:
         fonts = {}
         FontOps.generate_fonts(pdf_path)
 
-        for ttf_file in TEMPDIR.glob('*.ttf'):
+        data = {}
+        for page in pymupdf.open(pdf_path):
+            for font in page.get_fonts():
+                xref = font[0]
+                font_name = font[3]
+                if xref not in data:
+                    data[xref] = font_name
+
+        print(f"Found {len(data)} fonts in PDF")
+
+        for ttf_file in natsorted(TEMPDIR.glob('*.ttf')):
             font = TTFont(ttf_file)
 
             font_family = font["name"].names[1].toStr()
             FontOps.BUFFERS[font_family] = pymupdf.Font(fontbuffer=ttf_file.read_bytes())
+
+            font_xref = None
+            for xref, name in data.items():
+                if name == font_family:
+                    font_xref = xref
+                    data.pop(xref)
+                    break
 
             font.flavor = "woff"
             woff_buffer = BytesIO()
@@ -46,12 +64,14 @@ class FontOps:
 
             woff_b64 = base64.b64encode(woff_buffer.getvalue()).decode('utf-8')
 
-            fonts[font_family] = {
+            fonts[font_xref] = {
                 "name": font_family,
                 "data": woff_b64,
+                "xref": font_xref,
                 "format": "woff"
             }
 
+        print(f"Not extracted {len(data)} fonts are: {list(data.values())}")
         return fonts
 
 
@@ -80,6 +100,7 @@ class Extractors:
         """ Extract text blocks with coordinates and font information """
         text_blocks = []
 
+        page_fonts = page.get_fonts()
         text_dict = page.get_text("dict")    
         for block in text_dict["blocks"]:
             if "lines" in block:  # Text block
@@ -94,6 +115,11 @@ class Extractors:
                         font_name = span["font"]
                         font_size = round(span["size"] * scale_factor, 2)
                         font_flags = span["flags"]
+
+                        for font in page_fonts:
+                            if font[3] == font_name:
+                                font_xref = font[0]
+                                break
 
                         color = span["color"]
                         color = f"#{color:06x}"  # Convert to hex
@@ -136,6 +162,7 @@ class Extractors:
                                 "x": x,
                                 "y": y,
                                 "font_name": font_name,
+                                "font_xref": font_xref,
                                 "font_size": font_size,
                                 "font_weight": font_weight,
                                 "font_style": font_style,
@@ -154,10 +181,10 @@ def generate_html(pages_data, fonts, title):
     html_buffer = StringIO()
     
     font_css_buffer = StringIO()
-    for font_name, font_info in fonts.items():
+    for _, font_info in fonts.items():
         font_css_buffer.write(f"""
             @font-face {{
-                font-family: '{font_name}';
+                font-family: 'f_{font_info["xref"]}';
                 src: url(data:font/truetype;base64,{font_info["data"]}) format('{font_info["format"]}');
             }}"""
         )
@@ -226,7 +253,7 @@ f"""<!DOCTYPE html>
 
             html_buffer.write(f"""
             <span class="_t" style="left:{text_block['x']}px;top:{text_block['y']}px;
-                font-family:'{text_block['font_name']}';font-size:{text_block['font_size']}px;
+                font-family:'f_{text_block['font_xref']}';font-size:{text_block['font_size']}px;
                 color:{text_block['color']};letter-spacing:{text_block['letter_spacing']}px;
                 {rotation_style}
             ">{text_block['text']}</span>"""
