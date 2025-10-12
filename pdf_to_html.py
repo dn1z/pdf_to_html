@@ -30,13 +30,13 @@ class FontOps:
         subprocess.run(command, check=True)
 
     @staticmethod
-    def extract_fonts_from_pdf(pdf_path):
+    def extract_fonts_from_pdf(pdf_path, doc):
         """Extract embedded fonts from PDF and return as base64."""
         fonts = {}
         FontOps.generate_fonts(pdf_path)
 
         data = {}
-        for page in pymupdf.open(pdf_path):
+        for page in doc:
             for font in page.get_fonts():
                 xref = font[0]
                 font_name = font[3]
@@ -206,14 +206,14 @@ def generate_html(pages_data, fonts, title):
     """Generate complete HTML with embedded images, fonts, and positioned text."""
     
     html_buffer = StringIO()
-    
     font_css_buffer = StringIO()
+    
     for _, font_info in fonts.items():
         font_css_buffer.write(f"""
-            @font-face {{
-                font-family: 'f_{font_info["xref"]}';
-                src: url(data:font/truetype;base64,{font_info["data"]}) format('{font_info["format"]}');
-            }}"""
+        @font-face {{
+            font-family: 'f_{font_info["xref"]}';
+            src: url(data:font/truetype;base64,{font_info["data"]}) format('{font_info["format"]}');
+        }}"""
         )
     font_css = font_css_buffer.getvalue()
     font_css_buffer.close()
@@ -259,8 +259,7 @@ f"""<!DOCTYPE html>
             body {{ margin: 0; padding: 0; background-color: white; }}
             .page {{ margin: 0; box-shadow: none; page-break-after: always; }}
             @page {{ size: A3; margin: 0; }}
-        }}
-    {font_css}
+        }}{font_css}
     </style>
 </head>
 <body>""")
@@ -314,7 +313,7 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
     print(f"Total pages: {len(doc)}")
     
     print("Extracting fonts...")
-    fonts = FontOps.extract_fonts_from_pdf(pdf_path)
+    fonts = FontOps.extract_fonts_from_pdf(pdf_path, doc)
     font_buffers = FontOps.BUFFERS
     print(f"Extracted {len(fonts)} fonts")
 
@@ -324,8 +323,9 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
         output_path = Path(f"{pdf_path.parent/name}.html")
     
     pages_data = []
+    total_pages = len(doc)
     for i, page in enumerate(doc):
-        print(f"Processing page {i + 1}/{len(doc)}")
+        print(f"Processing page {i + 1}/{total_pages} ({(i + 1) / total_pages * 100:.2f}%)")
         
         text_blocks = Extractors.extract_text_blocks(page, font_buffers, scale_factor)
         image_base64, width, height = Extractors.extract_page_image(page, scale_factor)
