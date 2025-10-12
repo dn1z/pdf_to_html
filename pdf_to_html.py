@@ -21,7 +21,7 @@ class FontOps:
     @staticmethod
     def generate_fonts(pdf_path):
         command = [
-            'pdftohtml.exe',
+            Path(os.path.relpath(BASE/'pdftohtml.exe', CWD)).as_posix(),
             '-overwrite',
             Path(os.path.relpath(pdf_path, CWD)).as_posix(),
             Path(os.path.relpath(TEMPDIR, CWD)).as_posix()
