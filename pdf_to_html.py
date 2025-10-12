@@ -49,6 +49,10 @@ class FontOps:
             font = TTFont(ttf_file)
             font_family = font["name"].names[1].toStr()
 
+            # sometimes pdftohtml do not include subset font name even though it is subset
+            if '+' not in font_family:
+                font_family = list(data.values())[0]
+
             font_xref = None
             for xref, name in data.items():
                 if name == font_family:
@@ -97,8 +101,17 @@ class FontOps:
                 "xref": font_xref,
                 "format": "woff",
             }
+        
+        # Non-embedded fonts
+        for xref, name in data.items():
+            FontOps.BUFFERS[xref] = pymupdf.Font(fontname=name)
+            fonts[xref] = {
+                "name": name,
+                "data": None,
+                "xref": xref,
+                "format": None
+            }
 
-        print(f"Non-extracted {len(data)} fonts are: {list(data.values())}")
         return fonts
 
 
@@ -209,6 +222,15 @@ def generate_html(pages_data, fonts, title):
     font_css_buffer = StringIO()
     
     for _, font_info in fonts.items():
+        if font_info["data"] is None:
+            font_css_buffer.write(f"""
+        @font-face {{
+            font-family: 'f_{font_info["xref"]}';
+            src: local('{font_info["name"]}');
+        }}"""
+            )
+            continue
+        
         font_css_buffer.write(f"""
         @font-face {{
             font-family: 'f_{font_info["xref"]}';
