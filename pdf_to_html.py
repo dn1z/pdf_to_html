@@ -47,9 +47,7 @@ class FontOps:
 
         for ttf_file in natsorted(TEMPDIR.glob('*.ttf')):
             font = TTFont(ttf_file)
-
             font_family = font["name"].names[1].toStr()
-            FontOps.BUFFERS[font_family] = pymupdf.Font(fontbuffer=ttf_file.read_bytes())
 
             font_xref = None
             for xref, name in data.items():
@@ -57,6 +55,8 @@ class FontOps:
                     font_xref = xref
                     data.pop(xref)
                     break
+            
+            FontOps.BUFFERS[font_xref] = pymupdf.Font(fontbuffer=ttf_file.read_bytes())
 
             font.flavor = "woff"
             woff_buffer = BytesIO()
@@ -83,7 +83,7 @@ class FontOps:
                     font_family = data.pop(xref)
                     break
                     
-            FontOps.BUFFERS[font_family] = pymupdf.Font(fontbuffer=otf_file.read_bytes())
+            FontOps.BUFFERS[font_xref] = pymupdf.Font(fontbuffer=otf_file.read_bytes())
             
             font.flavor = "woff"
             woff_buffer = BytesIO()
@@ -169,7 +169,7 @@ class Extractors:
                                     width = abs(width / math.cos(math.radians(html_degrees)))
 
                             try:
-                                calculated_width = font_buffers[font_name].text_length(text, font_size)
+                                calculated_width = font_buffers[font_xref].text_length(text, font_size)
                             except Exception as e:
                                 print(f"Error calculating text width for font {font_name}: {e}")
                                 calculated_width = width
