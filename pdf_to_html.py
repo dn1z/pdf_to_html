@@ -122,7 +122,7 @@ class FontOps:
 class Extractors:
     @staticmethod
     def extract_page_image(page, scale_factor):
-        """ Convert page to a PNG image and return as base64 string along with dimensions """
+        """ Convert page to a WEBP image and return as base64 string along with dimensions """
         page.add_redact_annot(page.rect)
         page.apply_redactions(
                 images=pymupdf.PDF_REDACT_IMAGE_NONE,     # Keep all images
@@ -130,10 +130,11 @@ class Extractors:
         )
 
         mat = pymupdf.Matrix(scale_factor, scale_factor)
-        
         pix = page.get_pixmap(matrix=mat, alpha=False)
-        img_data = pix.tobytes("png")
-        img_base64 = base64.b64encode(img_data).decode('utf-8')
+
+        img_buffer = BytesIO()
+        pix.pil_save(img_buffer, format="WEBP", optimize=True, lossless=True)
+        img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
 
         width = int(pix.width)
         height = int(pix.height)
@@ -293,7 +294,7 @@ f"""<!DOCTYPE html>
     for page_data in pages_data:
         html_buffer.write(f"""
     <div class="page" style="width: {page_data['width']}px; height: {page_data['height']}px;">
-        <div class="page-background" style="background-image: url(data:image/png;base64,{page_data['image']});"></div>
+        <div class="page-background" style="background-image: url(data:image/webp;base64,{page_data['image']});"></div>
         <div class="_l">"""
         )
 
