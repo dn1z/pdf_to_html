@@ -36,14 +36,18 @@ class FontOps:
         FontOps.generate_fonts(pdf_path)
 
         data = {}
+        non_embedded = {}
         for page in doc:
             for font in page.get_fonts():
                 xref = font[0]
                 font_name = font[3]
+                if '+' not in font_name:
+                    non_embedded[xref] = font_name
+                    continue
                 if xref not in data:
                     data[xref] = font_name
 
-        print(f"Found {len(data)} fonts in PDF")
+        print(f"Found {len(data) + len(non_embedded)} fonts in PDF")
 
         for ttf_file in natsorted(TEMPDIR.glob('*.ttf')):
             font = TTFont(ttf_file)
@@ -103,8 +107,7 @@ class FontOps:
                 "format": "woff",
             }
         
-        # Non-embedded fonts
-        for xref, name in data.items():
+        for xref, name in non_embedded.items():
             FontOps.BUFFERS[xref] = pymupdf.Font(fontname=name)
             fonts[xref] = {
                 "name": name,
