@@ -51,6 +51,7 @@ class FontOps:
 
             # sometimes pdftohtml do not include subset font name even though it is subset
             if '+' not in font_family:
+                print(f'Guessing font family name for {font_family}: {list(data.values())[0]}')
                 font_family = list(data.values())[0]
 
             font_xref = None
