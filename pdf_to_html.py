@@ -156,6 +156,7 @@ class Extractors:
                     if html_degrees >= 360:
                         html_degrees -= 360
 
+                    page.set_rotation(0)
                     for span in line["spans"]:
                         font_name = span["font"]
                         font_size = round(span["size"] * scale_factor, 2)
@@ -293,7 +294,7 @@ f"""<!DOCTYPE html>
 
     for page_data in pages_data:
         html_buffer.write(f"""
-    <div class="page" style="width: {page_data['width']}px; height: {page_data['height']}px;">
+    <div class="page" style="width: {page_data['width']}px; height: {page_data['height']}px;transform:rotate({page_data['rotation']}deg)">
         <div class="page-background" style="background-image: url(data:image/webp;base64,{page_data['image']});"></div>
         <div class="_l">"""
         )
@@ -325,7 +326,7 @@ f"""<!DOCTYPE html>
     return html_content
 
 
-def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
+def pdf_to_html(pdf_path, output_path=None, scale_factor=1.0):
     """Convert PDF to self-contained HTML file."""
     pymupdf.TOOLS.set_subset_fontnames(True)
     pymupdf.TOOLS.mupdf_display_errors(False)
@@ -354,6 +355,7 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
     for i, page in enumerate(doc):
         print(f"Processing page {i + 1}/{total_pages} ({(i + 1) / total_pages * 100:.2f}%)")
         
+        rotation = page.rotation
         text_blocks = Extractors.extract_text_blocks(page, font_buffers, scale_factor)
         image_base64, width, height = Extractors.extract_page_image(page, scale_factor)
         
@@ -361,6 +363,7 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
             "image": image_base64,
             "width": width,
             "height": height,
+            "rotation": rotation,
             "text_blocks": text_blocks
         })
     
@@ -377,8 +380,12 @@ def pdf_to_html(pdf_path, output_path=None, scale_factor=2.0):
 
 
 def main():
-    from tkinter.filedialog import askopenfilenames
-    pdfs = askopenfilenames(title="Select PDF files", filetypes=[("PDF files", "*.pdf")])
+    import sys
+    if len(sys.argv) == 2:
+        pdfs = [sys.argv[1]]
+    else:
+        from tkinter.filedialog import askopenfilenames
+        pdfs = askopenfilenames(title="Select PDF files", filetypes=[("PDF files", "*.pdf")])
 
     for pdf_file in pdfs:
         pdf_to_html(pdf_file)
