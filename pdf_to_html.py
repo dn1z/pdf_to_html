@@ -13,7 +13,7 @@ class Extractors:
         pix = page.get_pixmap(matrix=mat, alpha=False)
 
         img_buffer = BytesIO()
-        pix.pil_save(img_buffer, format="WEBP", optimize=True, lossless=True)
+        pix.pil_save(img_buffer, format="WEBP", optimize=True, quality=90)
         img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
 
         width = int(pix.width)
