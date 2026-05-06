@@ -13,7 +13,8 @@ class Extractors:
         pix = page.get_pixmap(matrix=mat, alpha=False)
 
         img_buffer = BytesIO()
-        pix.pil_save(img_buffer, format="WEBP", optimize=True, quality=90)
+        # method=6 uses the slowest/best compression algorithm for smallest file size
+        pix.pil_save(img_buffer, format="WEBP", optimize=True, quality=85, method=6)
         img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
 
         width = int(pix.width)
